@@ -1,60 +1,79 @@
-import express from 'express';
-import dotenv from 'dotenv';
-import cron from 'node-cron';
-import scrapeEpicGames from './scrappers/epicScraper.js';
-import scrapePrimeGames from './scrappers/primeScraper.js';
-import scrapeSteamGames from './scrappers/steamScraper.js';
+import express from "express";
+import dotenv from "dotenv";
+import cron from "node-cron";
+import { scrapeEpicGames, scrapeFreeEpicGames } from "./scrappers/epicScraper.js";
+import scrapePrimeGames from "./scrappers/primeScraper.js";
+import scrapeSteamGames from "./scrappers/steamScraper.js";
+import scrapeGOGGiveaway from "./scrappers/gogScraper.js";
 import mongoose from "mongoose";
-import database from './database/database.js';
-import gameRoutes from './route/game.route.js';
-import path from 'path';
-import cors from 'cors';
+import database from "./database/database.js";
+import gameRoutes from "./route/game.route.js";
+import path from "path";
+import cors from "cors";
 
 const app = express();
 dotenv.config();
 
 const PORT = process.env.PORT || 5500;
 
-
 const CONNECTION_STRING = process.env.MONGO_CONNECTION_STRING;
 if (!CONNECTION_STRING) {
-    console.error('MONGO_CONNECTION_STRING is not defined in the environment variables');
-    process.exit(1);
+  console.error(
+    "MONGO_CONNECTION_STRING is not defined in the environment variables"
+  );
+  process.exit(1);
 }
 
-mongoose.connect(CONNECTION_STRING)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((error) => console.error('Error connecting to MongoDB:', error));
+mongoose
+  .connect(CONNECTION_STRING)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((error) => console.error("Error connecting to MongoDB:", error));
 
 app.use(express.json());
 
 app.use(cors());
 
-app.use('/api/games', gameRoutes);
+app.use("/api/games", gameRoutes);
 
 // Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-    console.log('Serving static assets in production...');
-    app.use(express.static(path.join(path.resolve(), '/frontend/build')));
+if (process.env.NODE_ENV === "production") {
+  console.log("Serving static assets in production...");
+  app.use(express.static(path.join(path.resolve(), "/frontend/build")));
 
-    app.get('*', (req, res) => {
-        res.sendFile(path.resolve(path.resolve(), "frontend", "build", "index.html"));
-    }
+  app.get("*", (req, res) => {
+    res.sendFile(
+      path.resolve(path.resolve(), "frontend", "build", "index.html")
     );
+  });
 }
 
 // Run all scrapers
 const runScrapers = async () => {
-    console.log('Starting scraping process...');
+  try {
+    console.log("Starting scraping process...");
     await scrapeEpicGames();
+    console.log("Epic Games scraping completed.");
     await scrapePrimeGames();
+    console.log("Prime Games scraping completed.");
     await scrapeSteamGames();
-    console.log('Scraping completed.');
+    console.log("Steam Games scraping completed.");
+    console.log("Scraping process completed successfully.");
+  } catch (error) {
+    console.error("Error during scraping process:", error.message, error.stack);
+  }
 };
 
+// await scrapeFreeEpicGames();
+await scrapeEpicGames();
+await scrapeGOGGiveaway();
+
+
 // Schedule scrapers to run every day at 4:00 AM
-cron.schedule('0 4 * * *', runScrapers);
+// cron.schedule("31 1 * * *", runScrapers, {
+//   scheduled: true,
+//   timezone: "America/New_York",
+// });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on the port ${PORT}`);
+  console.log(`Server is running on the port ${PORT}`);
 });

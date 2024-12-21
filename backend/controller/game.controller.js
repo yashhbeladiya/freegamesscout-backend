@@ -8,33 +8,40 @@ export const addGames = async (req, res) => {
         }
 
         const games = req.body;
+        const results = {
+            added: 0,
+            duplicates: 0,
+            errors: 0,
+        };
 
-        // Prepare upsert operations to avoid duplicates
-        const bulkOps = games.map(game => ({
-            updateOne: {
-                filter: { link: game.link, platform: game.platform },
-                update: { $set: game }, // Update fields if the game exists
-                upsert: true, // Insert the game if it doesn't exist
-            },
-        }));
-
-        // Execute bulkWrite operation
-        const result = await Game.bulkWrite(bulkOps);
+        for (const game of games) {
+            try {
+                await Game.updateOne(
+                    { link: game.link, platform: game.platform },
+                    { $set: game },
+                    { upsert: true }
+                );
+                results.added++;
+            } catch (error) {
+                if (error.code === 11000) {
+                    console.warn(`Duplicate key error for game: ${game.title}`);
+                    results.duplicates++;
+                } else {
+                    console.error(`Error adding game: ${game.title}`, error);
+                    results.errors++;
+                }
+            }
+        }
 
         // Return success response with details
         res.status(201).json({
-            message: "Games added successfully.",
-            matchedCount: result.matchedCount,
-            modifiedCount: result.modifiedCount,
-            upsertedCount: result.upsertedCount,
+            message: "Games processed successfully.",
+            addedCount: results.added,
+            duplicateCount: results.duplicates,
+            errorCount: results.errors,
         });
     } catch (error) {
-        if (error.code === 11000) {
-            // Handle duplicate key error
-            console.error("Duplicate key error:", error);
-            return res.status(409).json({ message: "Duplicate key error. A game with the same title already exists." });
-        }
-        console.error("Error adding games:", error);
+        console.error("Error processing games:", error);
         res.status(500).json({ message: "Internal server error." });
     }
 };
@@ -77,6 +84,15 @@ export const getPrimeGames = async (req, res) => {
     }
 }
 
+export const getTopPicks = async (req, res) => {
+    try {
+        const games = await Game.find({ tags: "top-pick" });
+        res.status(200).json(games);
+    } catch (error) {
+        res.status(404).json({ message: error.message });
+    }
+};
+
 export const getSeachedGames = async (req, res) => {
     try {
         const { search } = req.query;
@@ -87,12 +103,20 @@ export const getSeachedGames = async (req, res) => {
     }
 }
 
-export const deleteAllGames = async (req, res) => {
+export const deleteAllGames = async (platform) => {
     try {
-        req.body = { platform: req.params.platform };
-        await Game.deleteMany({});
-        res.status(200).json({ message: "All games deleted successfully." });
+        await Game.deleteMany({ platform }); // Delete games based on platform
+        console.log(`${platform} games deleted successfully.`);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("Error deleting games:", error);
+    }
+};
+
+export const deleteTopPicksPlatform = async (platform) => {
+    try {
+        await Game.deleteMany({ platform, tag: "top-pick" });
+        console.log(`Top picks for ${platform} deleted successfully.`);
+    } catch (error) {
+        console.error(`Error deleting top picks for ${platform}:`, error);
     }
 }

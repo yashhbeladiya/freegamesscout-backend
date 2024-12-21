@@ -1,7 +1,6 @@
 import { By, until } from "selenium-webdriver";
 import { createDriver } from "../utils/util.js"; // Custom driver function
-import database from "../database/database.js"; // Optional: Adjust based on your database setup
-import { addGames } from "../controller/game.controller.js";
+import { addGames, deleteAllGames, deleteTopPicksPlatform } from "../controller/game.controller.js";
 
 export const scrapeEpicGames = async () => {
     const driver = await createDriver(); // Use the custom driver function
@@ -49,10 +48,8 @@ export const scrapeEpicGames = async () => {
                     image: img,
                     link,
                     platform: "Epic",
+                    tags: ["top-pick"],
                 };
-
-                // Save to the database (if applicable)
-                await database.save(gameRow);
 
                 // Add to gameData array
                 gameData.push(gameRow);
@@ -61,11 +58,9 @@ export const scrapeEpicGames = async () => {
             }
         }
 
-        console.log("Scraped Free Games Data:", gameData);
-
         if (gameData.length > 0) {
             // Before saving delete all the previous data
-            await database.deleteAllGames("Epic"); 
+            await deleteTopPicksPlatform("Epic");
 
             // Save the game data to the database
             await addGames({ body: gameData }, { 
@@ -83,4 +78,68 @@ export const scrapeEpicGames = async () => {
     }
 };
 
-export default scrapeEpicGames;
+export const scrapeFreeEpicGames = async () => {
+    const driver = await createDriver(); // Ensure this works correctly
+
+    console.log("Scraping Free Epic Games...");
+
+    const url = "https://store.epicgames.com/en-US/free-games";
+    try {
+        await driver.get(url);
+
+        // Wait for the game cards to be loaded
+        const gameCards = await driver.wait(
+            until.elementsLocated(By.css(".css-lrwy1y")),
+            15000 // Wait up to 15 seconds
+        );
+
+        const gameData = [];
+
+        for (let card of gameCards) {
+            try {
+                // Scroll into view
+                await driver.executeScript("arguments[0].scrollIntoView();", card);
+
+                // Extract game details
+                const gameLink = await card.findElement(By.css("a.css-g3jcms")).getAttribute("href");
+                const gameName = await card.findElement(By.css(".css-lgj0h8")).getText();
+                const gameImg = await card.findElement(By.css("img")).getAttribute("src");
+
+                gameData.push({
+                    title: gameName,
+                    link: gameLink, // No need to prepend the base URL
+                    image: gameImg,
+                    platform: "Epic",
+                    price: "Free",
+                });
+
+                console.log("Scraped Epic Game:", gameName);
+            } catch (error) {
+                console.error(`Error processing a game card: ${error.message}`);
+            }
+        }
+
+        if (gameData.length > 0) {
+            console.log(`Found ${gameData.length} games. Saving to database...`);
+
+            // Clear previous data and save the new data
+            await deleteAllGames("Epic");
+            await addGames({ body: gameData }, {
+                status: (code) => ({
+                    json: (message) => console.log(`Status ${code}:`, message),
+                }),
+            });
+
+            console.log("Games saved successfully.");
+        } else {
+            console.warn("No games found.");
+        }
+
+        return gameData;
+    } catch (error) {
+        console.error("Error scraping Epic Games:", error.message);
+        throw error;
+    } finally {
+        await driver.quit();
+    }
+};

@@ -1,7 +1,6 @@
 import { By, until } from "selenium-webdriver";
 import { createDriver } from "../utils/util.js";
-import database from "../database/database.js"; // Your database handling file
-import { addGames } from "../controller/game.controller.js";
+import { addGames, deleteAllGames } from "../controller/game.controller.js";
 
 export const scrapeSteamGames = async () => {
     const driver = await createDriver();
@@ -66,14 +65,14 @@ export const scrapeSteamGames = async () => {
                         image: gameImage,
                         link,
                         platform: "Steam",
+                        tag: [""],
                     };
-                    console.log("Scraped Steam Game:", rowData);
+                    if (price === "$0.00") {
+                        rowData.tag = ["top-pick"];
+                    }
 
                     // Example: push data to your desired storage (gameData list)
                     gameData.push(rowData);
-
-                    // Save the game data to the database
-                    await database.save(rowData);
 
                 } catch (staleElementError) {
                     console.error(`Stale element error for game ${i}, retrying...: ${staleElementError}`);
@@ -101,8 +100,8 @@ export const scrapeSteamGames = async () => {
 
     if (gameData.length > 0) {
         // Before saving delete all the previous data
-        await database.deleteAllGames("Steam");
-        
+        await deleteAllGames("Steam");
+
         await addGames({ body: gameData }, { 
             status: (code) => ({ json: (message) => console.log(code, message) })
         }); // Simulate the request/response interface

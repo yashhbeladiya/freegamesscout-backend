@@ -16,3 +16,23 @@ export const createDriver = async () => {
 
     return new Builder().forBrowser('chrome').setChromeOptions(options).build();
 };
+
+
+export const convertCountdownToDate = async(countdown) => {
+    // Get the current date/time
+    const currentDateTime = new Date();
+
+    // Parse the countdown string (e.g., "16 : 43 : 52 left")
+    const [hours, minutes, seconds] = countdown.split(':').map(part => parseInt(part.trim(), 10));
+
+    // Clone the current date/time
+    const targetDateTime = new Date(currentDateTime);
+
+    // Add the countdown time to the current time
+    targetDateTime.setHours(targetDateTime.getHours() + hours);
+    targetDateTime.setMinutes(targetDateTime.getMinutes() + minutes);
+    targetDateTime.setSeconds(targetDateTime.getSeconds() + seconds);
+
+    // Return the target date/time MM/DD/YYYY HH:MM:SS format
+    return targetDateTime.toLocaleString(); 
+}

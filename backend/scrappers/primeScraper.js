@@ -1,7 +1,6 @@
 import { By, until } from "selenium-webdriver";
 import { createDriver } from "../utils/util.js";
-import database from "../database/database.js"; // Your database handling file
-import { addGames } from "../controller/game.controller.js";
+import { addGames, deleteAllGames } from "../controller/game.controller.js";
 
 export const primeScraper = async () => {
     const driver = await createDriver();
@@ -81,12 +80,10 @@ export const primeScraper = async () => {
             }
         }
 
-        console.log("Scraped Free Games:", gameData);
-
         if (gameData.length > 0) {
             // Before saving delete all the previous data
-            await database.deleteAllGames("Prime Gaming");
-            
+            await deleteAllGames("Prime Gaming");
+
             await addGames({ body: gameData }, { 
                 status: (code) => ({ json: (message) => console.log(code, message) })
             }); // Simulate the request/response interface
