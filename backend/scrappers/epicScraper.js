@@ -1,5 +1,5 @@
 import { By, until } from "selenium-webdriver";
-import { createDriver } from "../utils/util.js"; // Custom driver function
+import { createDriver, formatToCustomDate } from "../utils/util.js"; // Custom driver function
 import { addGames, deleteAllGames, deleteTopPicksPlatform } from "../controller/game.controller.js";
 
 export const scrapeEpicGames = async () => {
@@ -34,16 +34,30 @@ export const scrapeEpicGames = async () => {
 
                 // Extract dates (release date and available until)
                 const dateElement = freeGamesDate[idx];
-                const releaseDate = await dateElement.findElement(By.xpath(".//time[1]")).getText();
-                const availableUntil = await dateElement.findElement(By.xpath(".//time[2]")).getText();
+                const timeElements = await dateElement.findElements(By.tagName("time"));
+                
+                let releaseDate = "";
+                let availableUntil = "";
+
+                if (timeElements.length >= 2) {
+                    // Extract release date and availability end date
+                    releaseDate = await timeElements[0].getAttribute("datetime");
+                    availableUntil = await timeElements[1].getAttribute("datetime");
+                } else if (timeElements.length === 1) {
+                    // If only one time element is present, assume it's the available until date
+                    availableUntil = await timeElements[0].getAttribute("datetime");
+                }
+
+                // Format the dates
+                const availableUntilDate = await formatToCustomDate(availableUntil);
 
                 // Price is always "Free" for this scraper
                 const price = "Free";
 
                 const gameRow = {
                     title,
-                    release_date: releaseDate,
-                    available_until: availableUntil,
+                    release_date: "Now", // No release date available
+                    available_until: availableUntilDate,
                     price,
                     image: img,
                     link,

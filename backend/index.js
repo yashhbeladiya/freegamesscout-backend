@@ -52,27 +52,26 @@ const runScrapers = async () => {
   try {
     console.log("Starting scraping process...");
     await scrapeEpicGames();
+    await scrapeFreeEpicGames();
     console.log("Epic Games scraping completed.");
     await scrapePrimeGames();
     console.log("Prime Games scraping completed.");
     await scrapeSteamGames();
     console.log("Steam Games scraping completed.");
+    await scrapeGOGGiveaway();
+    console.log("GOG Giveaway scraping completed.");
     console.log("Scraping process completed successfully.");
   } catch (error) {
     console.error("Error during scraping process:", error.message, error.stack);
   }
 };
 
-// await scrapeFreeEpicGames();
-await scrapeEpicGames();
-await scrapeGOGGiveaway();
-
 
 // Schedule scrapers to run every day at 4:00 AM
-// cron.schedule("31 1 * * *", runScrapers, {
-//   scheduled: true,
-//   timezone: "America/New_York",
-// });
+cron.schedule("2 * * *", runScrapers, {
+  scheduled: true,
+  timezone: "America/New_York",
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on the port ${PORT}`);

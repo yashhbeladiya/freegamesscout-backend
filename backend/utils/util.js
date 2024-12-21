@@ -34,5 +34,33 @@ export const convertCountdownToDate = async(countdown) => {
     targetDateTime.setSeconds(targetDateTime.getSeconds() + seconds);
 
     // Return the target date/time MM/DD/YYYY HH:MM:SS format
-    return targetDateTime.toLocaleString(); 
+    const dateString = await targetDateTime.toLocaleString();
+
+    // Parse the date string into a Date object
+    const date = new Date(dateString);
+
+    // Format the date to the desired string format
+    const options = { month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true };
+    const formattedDate = date.toLocaleString('en-US', options);
+
+    // Remove the year from the formatted date
+    const formattedDateWithoutYear = formattedDate.replace(/, \d{4}/, '');
+
+    return formattedDateWithoutYear;
+}
+
+export const formatToCustomDate = (isoString) => {
+    // Create a Date object from the ISO string
+    const date = new Date(isoString);
+
+    // Use `toLocaleString` to format the date into the desired format
+    const formattedDate = date.toLocaleString('en-US', {
+        month: 'short',  // Abbreviated month (e.g., "Dec")
+        day: '2-digit',  // 2-digit day (e.g., "22")
+        hour: '2-digit', // 2-digit hour (e.g., "09")
+        minute: '2-digit', // 2-digit minute (e.g., "00")
+        hour12: true, // 12-hour format
+    }).replace(",","");  // Remove the comma between the month and day
+
+    return formattedDate;
 }
