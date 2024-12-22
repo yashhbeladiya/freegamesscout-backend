@@ -6,7 +6,6 @@ import scrapePrimeGames from "./scrappers/primeScraper.js";
 import scrapeSteamGames from "./scrappers/steamScraper.js";
 import scrapeGOGGiveaway from "./scrappers/gogScraper.js";
 import mongoose from "mongoose";
-import database from "./database/database.js";
 import gameRoutes from "./route/game.route.js";
 import path from "path";
 import cors from "cors";
@@ -34,6 +33,16 @@ app.use(express.json());
 app.use(cors());
 
 app.use("/api/games", gameRoutes);
+
+app.post('/trigger-scrape', async (req, res) => {
+    try {
+        await runScrapers();
+        res.status(200).json({ message: "Scraping triggered successfully." });
+    } catch (error) {
+        console.error("Error triggering scraping:", error);
+        res.status(500).json({ message: "Internal server error." });
+    }
+});
 
 // Serve static assets in production
 // if (process.env.NODE_ENV === "production") {
