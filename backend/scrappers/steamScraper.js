@@ -4,7 +4,7 @@ import { addGames, deleteAllGames } from "../controller/game.controller.js";
 
 export const scrapeSteamGames = async () => {
     const driver = await createDriver();
-    const url = 'https://store.steampowered.com/search/?sort_by=Released_DESC&term=free&maxprice=free&supportedlang=english&ndl=1';
+    const url = 'https://store.steampowered.com/search/?sort_by=Price_ASC&supportedlang=english';
     const gameData = [];
 
     try {
