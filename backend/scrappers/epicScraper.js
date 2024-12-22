@@ -13,7 +13,7 @@ export const scrapeEpicGames = async () => {
         // Wait for the free games section to load
         const freeGamesDiv = await driver.wait(
             until.elementLocated(By.css(".css-1myhtyb")),
-            15000 // Wait up to 15 seconds
+            30000 // Wait up to 15 seconds
         );
 
         // Fetch all free game elements

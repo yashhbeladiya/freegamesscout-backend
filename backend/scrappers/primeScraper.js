@@ -16,7 +16,7 @@ export const primeScraper = async () => {
         // Wait for the game cards to load
         const gameCards = await driver.wait(
             until.elementsLocated(By.className("item-card__action")),
-            15000
+            30000
         );
 
         const gameData = [];
