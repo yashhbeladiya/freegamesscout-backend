@@ -15,7 +15,7 @@ export const scrapeGOGGiveaway = async () => {
         // Wait for the game elements to be loaded
         const giveawayHeader = await driver.wait(
             until.elementLocated(By.css(".giveaway__content-header")),
-            15000
+            30000
         );
 
         // Extract the game name
