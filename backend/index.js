@@ -36,16 +36,16 @@ app.use(cors());
 app.use("/api/games", gameRoutes);
 
 // Serve static assets in production
-if (process.env.NODE_ENV === "production") {
-  console.log("Serving static assets in production...");
-  app.use(express.static(path.join(path.resolve(), "/frontend/build")));
+// if (process.env.NODE_ENV === "production") {
+//   console.log("Serving static assets in production...");
+//   app.use(express.static(path.join(path.resolve(), "/frontend/build")));
 
-  app.get("*", (req, res) => {
-    res.sendFile(
-      path.resolve(path.resolve(), "frontend", "build", "index.html")
-    );
-  });
-}
+//   app.get("*", (req, res) => {
+//     res.sendFile(
+//       path.resolve(path.resolve(), "frontend", "build", "index.html")
+//     );
+//   });
+// }
 
 // Run all scrapers
 const runScrapers = async () => {
@@ -68,7 +68,7 @@ const runScrapers = async () => {
 
 
 // Schedule scrapers to run every day at 4:00 AM
-cron.schedule("2 * * *", runScrapers, {
+cron.schedule("0 2 * * *", runScrapers, {
   scheduled: true,
   timezone: "America/New_York",
 });
