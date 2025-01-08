@@ -85,6 +85,15 @@ export const getPrimeGames = async (req, res) => {
     }
 }
 
+export const getGOGGames = async (req, res) => {
+    try {
+        const games = await Game.find({ platform: "GOG" });
+        res.status(200).json(games);
+    } catch (error) {
+        res.status(404).json({ message: error.message });
+    }
+}
+
 export const getTopPicks = async (req, res) => {
     try {
         const games = await Game.find({ tags: "top-pick" });

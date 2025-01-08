@@ -7,6 +7,7 @@ import {
   getSeachedGames,
   addGames,
   getTopPicks,
+  getGOGGames,
 } from "../controller/game.controller.js";
 
 const router = express.Router();
@@ -18,5 +19,6 @@ router.get("/prime", getPrimeGames);
 router.get("/search", getSeachedGames);
 router.post("/", addGames);
 router.get("/top-picks", getTopPicks);
+router.get("/gog", getGOGGames);
 
 export default router;
