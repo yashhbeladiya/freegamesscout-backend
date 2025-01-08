@@ -5,6 +5,7 @@ import { scrapeEpicGames, scrapeFreeEpicGames } from "./scrappers/epicScraper.js
 import scrapePrimeGames from "./scrappers/primeScraper.js";
 import scrapeSteamGames from "./scrappers/steamScraper.js";
 import scrapeGOGGiveaway from "./scrappers/gogScraper.js";
+import { deleteExpiredGames } from "./controller/game.controller.js";
 import mongoose from "mongoose";
 import gameRoutes from "./route/game.route.js";
 import path from "path";
@@ -37,12 +38,14 @@ app.use("/api/games", gameRoutes);
 app.post('/trigger-scrape', async (req, res) => {
     try {
         await runScrapers();
+        // await scrapeSteamGames();
         res.status(200).json({ message: "Scraping triggered successfully." });
     } catch (error) {
         console.error("Error triggering scraping:", error);
         res.status(500).json({ message: "Internal server error." });
     }
 });
+
 
 // Serve static assets in production
 // if (process.env.NODE_ENV === "production") {
@@ -59,6 +62,8 @@ app.post('/trigger-scrape', async (req, res) => {
 // Run all scrapers
 const runScrapers = async () => {
   try {
+    await deleteExpiredGames();
+    console.log("Deleted expired games.");
     console.log("Starting scraping process...");
     await scrapeEpicGames();
     await scrapeFreeEpicGames();

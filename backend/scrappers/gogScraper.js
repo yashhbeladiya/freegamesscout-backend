@@ -54,9 +54,11 @@ export const scrapeGOGGiveaway = async () => {
 
         console.log("Got game data:", gameData);
 
+        await deleteTopPicksPlatform("GOG");
+        await deleteAllGames("GOG");
+
         // Add the game data to the database
         if (gameData.length > 0) {
-            await deleteTopPicksPlatform("GOG");
             await addGames({ body: gameData }, {
                 status: (code) => ({
                     json: (message) => console.log(`Status ${code}:`, message),

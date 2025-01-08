@@ -1,4 +1,5 @@
 import Game from "../model/game.model.js";
+import { formatToCustomDate } from "../utils/util.js";
 
 export const addGames = async (req, res) => {
     try {
@@ -118,5 +119,15 @@ export const deleteTopPicksPlatform = async (platform) => {
         console.log(`Top picks for ${platform} deleted successfully.`);
     } catch (error) {
         console.error(`Error deleting top picks for ${platform}:`, error);
+    }
+};
+
+export const deleteExpiredGames = async () => {
+    try {
+        const currentDate = formatToCustomDate(new Date());
+        await Game.deleteMany({ available_until: { $lt: currentDate } });
+        console.log("Expired games deleted successfully.");
+    } catch (error) {
+        console.error("Error deleting expired games:", error);
     }
 }
