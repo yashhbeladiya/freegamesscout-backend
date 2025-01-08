@@ -94,7 +94,7 @@ export const scrapeGOGFreeGames = async () => {
   const driver = await createDriver();
 
   try {
-    const url = "https://www.gog.com/en/games?priceRange=0,0";
+    const url = "https://www.gog.com/en/games?priceRange=0,0&hideDLCs=true";
     await driver.get(url);
 
     const gameData = [];
