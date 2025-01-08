@@ -62,9 +62,9 @@ app.post('/trigger-scrape', async (req, res) => {
 // Run all scrapers
 const runScrapers = async () => {
   try {
-    await deleteExpiredGames();
-    console.log("Deleted expired games.");
-    console.log("Starting scraping process...");
+    // await deleteExpiredGames();
+    // console.log("Deleted expired games.");
+    // console.log("Starting scraping process...");
     await scrapeEpicGames();
     await scrapeFreeEpicGames();
     console.log("Epic Games scraping completed.");
@@ -79,7 +79,6 @@ const runScrapers = async () => {
     console.error("Error during scraping process:", error.message, error.stack);
   }
 };
-
 
 // Schedule scrapers to run every day at 4:00 AM
 cron.schedule("0 2 * * *", runScrapers, {

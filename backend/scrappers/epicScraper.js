@@ -73,9 +73,6 @@ export const scrapeEpicGames = async () => {
         }
 
         if (gameData.length > 0) {
-            // Before saving delete all the previous data
-            await deleteTopPicksPlatform("Epic");
-
             // Save the game data to the database
             await addGames({ body: gameData }, { 
                 status: (code) => ({ json: (message) => console.log(code, message) })
@@ -136,8 +133,9 @@ export const scrapeFreeEpicGames = async () => {
         if (gameData.length > 0) {
             console.log(`Found ${gameData.length} games. Saving to database...`);
 
+            await deleteAllGames('Epic');
+
             // Clear previous data and save the new data
-            await deleteTopPicksPlatform("Epic");
             await addGames({ body: gameData }, {
                 status: (code) => ({
                     json: (message) => console.log(`Status ${code}:`, message),
