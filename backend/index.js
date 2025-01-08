@@ -37,7 +37,7 @@ app.use("/api/games", gameRoutes);
 
 app.post('/trigger-scrape', async (req, res) => {
     try {
-        await runScrapers();
+        await scrapeGOGFreeGames();
         // await scrapeSteamGames();
         res.status(200).json({ message: "Scraping triggered successfully." });
     } catch (error) {
@@ -81,8 +81,6 @@ const runScrapers = async () => {
     console.error("Error during scraping process:", error.message, error.stack);
   }
 };
-
-
 
 
 // Schedule scrapers to run every day at 4:00 AM

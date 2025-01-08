@@ -113,26 +113,36 @@ export const scrapeGOGFreeGames = async () => {
             .getText();
           const price = "Free";
           const link = await game.getAttribute("href");
+
           const imageElement = await game
-            .findElement(By.css("picture img"))
+            .findElement(By.css('source[type="image/webp"]'))
             .catch(() => null);
+
           let image = null;
 
           if (imageElement) {
-            image = await imageElement.getAttribute("src").catch(() => null);
-          }
-
-          // If still null, try alternative selectors or set a default value
-          if (!image) {
-            try {
-              image = await game
-                .findElement(By.css(".product-tile__image-wrapper img"))
-                .getAttribute("src");
-            } catch {
-              image = "default_image_url_here"; // Set a default fallback image URL
+            const srcset = await imageElement.getAttribute("srcset").catch(() => null);
+            if (srcset) {
+              const urls = srcset.split(",");
+              image = urls[0].trim(); // Take the second image link from srcset
             }
           }
 
+          if (!image) {
+            console.log(`No image found for game: ${title}`);
+            // console.log("srcset", srcset);
+
+            // wait for the image to load and try again
+            await driver.executeScript("arguments[0].scrollIntoView();", game);
+            await driver.sleep(2000);
+            const imageElement2 = await game.findElement(By.css('source[type="image/webp"]'));
+            const srcset2 = await imageElement2.getAttribute("srcset").catch(() => null);
+            if (srcset2) {
+              const urls = srcset2.split(",");
+              image = urls[0].trim(); // Take the second image link from srcset
+            }
+            }
+        
           if (!/demo/i.test(title)) {
             gameData.push({
               title,
@@ -178,10 +188,10 @@ export const scrapeGOGFreeGames = async () => {
             }),
             }
         );
-        console.log("GOG Free Games scraped successfully.");
     } else {
         console.warn("No games found.");
     }
+    console.log("GOG Free Games scraped successfully.");
     
   } catch (error) {
     console.error(`Error during pagination scraping: ${error}`);
