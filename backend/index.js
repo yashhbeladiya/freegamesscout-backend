@@ -4,7 +4,7 @@ import cron from "node-cron";
 import { scrapeEpicGames, scrapeFreeEpicGames } from "./scrappers/epicScraper.js";
 import scrapePrimeGames from "./scrappers/primeScraper.js";
 import scrapeSteamGames from "./scrappers/steamScraper.js";
-import scrapeGOGGiveaway from "./scrappers/gogScraper.js";
+import { scrapeGOGFreeGames, scrapeGOGGiveaway} from "./scrappers/gogScraper.js";
 import { deleteExpiredGames } from "./controller/game.controller.js";
 import mongoose from "mongoose";
 import gameRoutes from "./route/game.route.js";
@@ -37,7 +37,7 @@ app.use("/api/games", gameRoutes);
 
 app.post('/trigger-scrape', async (req, res) => {
     try {
-        await runScrapers();
+        await scrapeGOGFreeGames();
         // await scrapeSteamGames();
         res.status(200).json({ message: "Scraping triggered successfully." });
     } catch (error) {
@@ -74,6 +74,8 @@ const runScrapers = async () => {
     console.log("Steam Games scraping completed.");
     await scrapeGOGGiveaway();
     console.log("GOG Giveaway scraping completed.");
+    await scrapeGOGFreeGames();
+    console.log("GOG Free Games scraping completed.");
     console.log("Scraping process completed successfully.");
   } catch (error) {
     console.error("Error during scraping process:", error.message, error.stack);
