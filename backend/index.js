@@ -37,8 +37,7 @@ app.use("/api/games", gameRoutes);
 
 app.post('/trigger-scrape', async (req, res) => {
     try {
-        await scrapeGOGFreeGames();
-        // await scrapeSteamGames();
+        await runScrapers();
         res.status(200).json({ message: "Scraping triggered successfully." });
     } catch (error) {
         console.error("Error triggering scraping:", error);
@@ -65,8 +64,8 @@ const runScrapers = async () => {
     // await deleteExpiredGames();
     // console.log("Deleted expired games.");
     // console.log("Starting scraping process...");
-    await scrapeEpicGames();
     await scrapeFreeEpicGames();
+    await scrapeEpicGames();
     console.log("Epic Games scraping completed.");
     await scrapePrimeGames();
     console.log("Prime Games scraping completed.");

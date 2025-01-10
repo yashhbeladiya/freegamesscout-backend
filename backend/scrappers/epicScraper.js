@@ -39,10 +39,16 @@ export const scrapeEpicGames = async () => {
                 let releaseDate = "";
                 let availableUntil = "";
 
-                if (timeElements.length >= 2) {
+                if (timeElements.length == 2) {
                     // Extract release date and availability end date
                     releaseDate = await timeElements[0].getAttribute("datetime");
                     availableUntil = await timeElements[1].getAttribute("datetime");
+                    if (releaseDate === availableUntil) {
+                        // If the dates are the same, assume it already started and is available until the same date
+                        releaseDate = "Now";
+                    } else {
+                        releaseDate = await formatToCustomDate(releaseDate);
+                    }
                 } else if (timeElements.length === 1) {
                     // If only one time element is present, assume it's the available until date
                     availableUntil = await timeElements[0].getAttribute("datetime");
@@ -56,7 +62,7 @@ export const scrapeEpicGames = async () => {
 
                 const gameRow = {
                     title,
-                    release_date: "Now", // No release date available
+                    release_date: releaseDate,
                     available_until: availableUntilDate,
                     price,
                     image: img,
@@ -133,7 +139,7 @@ export const scrapeFreeEpicGames = async () => {
         if (gameData.length > 0) {
             console.log(`Found ${gameData.length} games. Saving to database...`);
 
-            await deleteAllGames('Epic');
+            deleteAllGames("Epic");
 
             // Clear previous data and save the new data
             await addGames({ body: gameData }, {
