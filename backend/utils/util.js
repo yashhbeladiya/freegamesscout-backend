@@ -3,7 +3,7 @@ import { Options, ServiceBuilder } from "selenium-webdriver/chrome.js";
 
 export const createDriver = async () => {
     const options = new Options();
-    options.addArguments('--headless=false'); // Run in headless mode
+    // options.addArguments('--headless=false'); // Run in headless mode
     options.addArguments('--disable-gpu=false');
     options.addArguments('--no-sandbox'); // For environments like Docker
     options.addArguments('--disable-dev-shm-usage'); // Overcome resource limitations on Linux
@@ -16,7 +16,7 @@ export const createDriver = async () => {
     // return new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
     try { console.log("Creating the Selenium WebDriver..."); 
-        const service = new ServiceBuilder('C:/Users/scout/OneDrive/freegamescout-backend/freegamesscout-backend/chromedriver.exe');
+        const service = new ServiceBuilder('C:/Users/scout/Desktop/freegamesscout-backend/chromedriver.exe');
         const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).setChromeService(service).build(); 
         console.log("Driver is created successfully"); return driver; 
     } catch (error) { console.error("Error creating the Selenium WebDriver:", error.message); 

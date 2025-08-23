@@ -161,7 +161,7 @@ import { addGames, deleteAllGames } from "../controller/game.controller.js";
 
 export const scrapeSteamGames = async () => {
   let driver = await createDriver();
-  const url = "https://store.steampowered.com/search/?sort_by=Price_ASC&supportedlang=english";
+  const url = "https://store.steampowered.com/search/?sort_by=Released_DESC&maxprice=free&category1=998%2C994&supportedlang=english";
   const gameData = new Set();
   const processedTitles = new Set();
 
@@ -173,8 +173,13 @@ export const scrapeSteamGames = async () => {
     let previousHeight = 0;
     let noNewContentCount = 0;
     const MAX_RETRIES = 3;
+    const MAX_GAMES = 160;
 
     while (noNewContentCount < MAX_RETRIES) {
+      if (gameData.size >= MAX_GAMES) {
+        break;
+      }
+
       const freeGames = await driver.findElements(By.className("search_result_row"));
 
       for (const game of freeGames) {
@@ -259,7 +264,6 @@ export const scrapeSteamGames = async () => {
   const uniqueGameData = Array.from(gameData).map(game => JSON.parse(game));
   
   if (uniqueGameData.length > 0) {
-    await deleteAllGames("Steam");
     await addGames(
       { body: uniqueGameData },
       { status: (code) => ({ json: (message) => console.log(code, message) }) }

@@ -63,7 +63,7 @@ const runScrapers = async () => {
   try {
     // await deleteExpiredGames();
     // console.log("Deleted expired games.");
-    // console.log("Starting scraping process...");
+    console.log("Starting scraping process...");
     await scrapeFreeEpicGames();
     await scrapeEpicGames();
     console.log("Epic Games scraping completed.");
@@ -81,8 +81,8 @@ const runScrapers = async () => {
   }
 };
 
-// Schedule scrapers to run every day at 4:00 AM
-cron.schedule("0 2 * * *", runScrapers, {
+// // Schedule scrapers to run every day at 4:00 AM
+cron.schedule("01 11 * * *", runScrapers, {
   scheduled: true,
   timezone: "America/New_York",
 });
