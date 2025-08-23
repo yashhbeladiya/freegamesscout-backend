@@ -50,7 +50,32 @@ export const addGames = async (req, res) => {
 export const getGames = async (req, res) => {
     try {
         console.log("Fetching games...");
-        const games = await Game.find().sort({ release_date: -1 });
+        
+        const { platform, tags, limit } = req.query;
+        
+        // Build filter object
+        let filter = {};
+        
+        if (platform) {
+            // Support multiple platforms: ?platform=Epic,Steam
+            const platforms = platform.split(',');
+            filter.platform = { $in: platforms };
+        }
+        
+        if (tags) {
+            // Support filtering by tags: ?tags=top-pick
+            const tagList = tags.split(',');
+            filter.tags = { $in: tagList };
+        }
+        
+        // Build query
+        let query = Game.find(filter).sort({ release_date: -1 });
+        
+        if (limit) {
+            query = query.limit(parseInt(limit));
+        }
+        
+        const games = await query;
         console.log("Games fetched successfully.");
         res.status(200).json(games);
     } catch (error) {
