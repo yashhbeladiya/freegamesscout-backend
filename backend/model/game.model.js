@@ -9,6 +9,8 @@ const gameSchema = new mongoose.Schema({
   link: { type: String, required: true, unique: true },
   platform: { type: String, required: true },
   tags: { type: [String], default: [] },
+  categories: { type: [String], default: [] }, // New field for genres/categories
+  features: { type: [String], default: [] }    // New field for game features
 });
 
 const Game = mongoose.model("Game", gameSchema);

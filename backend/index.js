@@ -1,10 +1,24 @@
 import express from "express";
 import dotenv from "dotenv";
 import cron from "node-cron";
-import { scrapeEpicGames, scrapeFreeEpicGames } from "./scrappers/epicScraper.js";
-import scrapePrimeGames from "./scrappers/primeScraper.js";
-import scrapeSteamGames from "./scrappers/steamScraper.js";
-import { scrapeGOGFreeGames, scrapeGOGGiveaway} from "./scrappers/gogScraper.js";
+// import { scrapeEpicGames, scrapeFreeEpicGames } from "./scrappers/epicScraper.js";
+import { scrapeAllEpicGames } from "./scrappers/epicScraper.js";
+// import scrapePrimeGames from "./scrappers/primeScraper.js";
+import {
+  scrapeAllPrimeGaming
+} from "./scrappers/primeScraper.js";
+import { scrapeSteamFreeGames,
+    scrapeSteamHighlyDiscounted,
+    scrapeSteamBudgetGames,
+    scrapeAllSteamGames
+ } from "./scrappers/steamScraper.js";
+// import { scrapeGOGFreeGames, scrapeGOGGiveaway} from "./scrappers/gogScraper.js";
+import {
+    scrapeGOGGiveaway,
+    scrapeGOGFreeGames,
+    scrapeGOGHighlyDiscounted,
+    scrapeAllGOGGames
+} from "./scrappers/gogScraper.js"
 import { deleteExpiredGames } from "./controller/game.controller.js";
 import mongoose from "mongoose";
 import gameRoutes from "./route/game.route.js";
@@ -61,20 +75,10 @@ app.post('/trigger-scrape', async (req, res) => {
 // Run all scrapers
 const runScrapers = async () => {
   try {
-    // await deleteExpiredGames();
-    // console.log("Deleted expired games.");
-    console.log("Starting scraping process...");
-    await scrapeFreeEpicGames();
-    await scrapeEpicGames();
-    console.log("Epic Games scraping completed.");
-    await scrapePrimeGames();
-    console.log("Prime Games scraping completed.");
-    await scrapeSteamGames();
-    console.log("Steam Games scraping completed.");
-    await scrapeGOGGiveaway();
-    console.log("GOG Giveaway scraping completed.");
-    await scrapeGOGFreeGames();
-    console.log("GOG Free Games scraping completed.");
+    await scrapeAllEpicGames();
+    await scrapeAllPrimeGaming();
+    await scrapeAllSteamGames();
+    await scrapeAllGOGGames();
     console.log("Scraping process completed successfully.");
   } catch (error) {
     console.error("Error during scraping process:", error.message, error.stack);
