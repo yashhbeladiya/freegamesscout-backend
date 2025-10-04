@@ -42,7 +42,7 @@ You need to set up these secrets in your GitHub repository:
 ### **Step 1: MongoDB Connection String**
 ```
 Secret Name: MONGO_CONNECTION_STRING
-Value: mongodb+srv://yashrajbeladiya:ySPkEsjHSZD38x6b@kanbas.ezal6.mongodb.net/FreeGamesScout?retryWrites=true&w=majority&appName=Kanbas
+Value: mongodb+srv://xxxxxxxx
 ```
 
 ### **Step 2: Azure Credentials**
