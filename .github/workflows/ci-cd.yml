@@ -50,8 +50,9 @@ jobs:
     - name: 🔒 Security audit
       run: npm audit --audit-level high
     
-    # Step 5: Run scraping tests (in headless mode)
+    # Step 5: Run scraping tests (in headless mode with timeout)
     - name: 🧪 Test scraping functionality
+      timeout-minutes: 8  # Maximum 8 minutes for scraping tests
       run: |
         # Install Chrome for testing
         sudo apt-get update
@@ -60,9 +61,10 @@ jobs:
         # Set environment variables for headless testing
         export HEADLESS=true
         export CHROME_BIN=/usr/bin/chromium-browser
+        export CI=true
         
-        # Run our scraping tests
-        node backend/test/scraping-test.js
+        # Run our optimized CI scraping tests
+        node backend/test/scraping-test-ci.js
       env:
         MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
 
