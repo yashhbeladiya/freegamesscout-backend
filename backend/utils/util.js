@@ -3,7 +3,10 @@ import { Options, ServiceBuilder } from "selenium-webdriver/chrome.js";
 
 export const createDriver = async () => {
     const options = new Options();
-    // options.addArguments('--headless=false'); // Run in headless mode
+    // Configure headless mode based on environment
+    if (process.env.HEADLESS !== 'false') {
+        options.addArguments('--headless=new'); // Run in headless mode by default
+    }
     options.addArguments('--disable-gpu=false');
     options.addArguments('--no-sandbox'); // For environments like Docker
     options.addArguments('--disable-dev-shm-usage'); // Overcome resource limitations on Linux
@@ -15,11 +18,38 @@ export const createDriver = async () => {
 
     // return new Builder().forBrowser('chrome').setChromeOptions(options).build();
 
-    try { console.log("Creating the Selenium WebDriver..."); 
-        const service = new ServiceBuilder('C:/Users/scout/Desktop/freegamesscout-backend/chromedriver.exe');
-        const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).setChromeService(service).build(); 
-        console.log("Driver is created successfully"); return driver; 
-    } catch (error) { console.error("Error creating the Selenium WebDriver:", error.message); 
+    try { 
+        console.log("Creating the Selenium WebDriver..."); 
+        
+        // Check if we're in a containerized environment
+        const isContainer = process.env.CHROME_BIN || process.env.HEADLESS === 'true';
+        
+        if (isContainer) {
+            // Container environment - use chromium
+            options.addArguments('--headless=new'); // Use new headless mode
+            options.addArguments('--disable-extensions');
+            options.addArguments('--disable-plugins');
+            options.setChromeBinaryPath(process.env.CHROME_BIN || '/usr/bin/chromium');
+        } else if (process.platform === 'darwin') {
+            // macOS - use Chrome from Applications
+            options.setChromeBinaryPath('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
+        }
+        
+        // Try to use system chrome/chromium first, fallback to local chromedriver
+        let driver;
+        try {
+            driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
+        } catch (error) {
+            // Fallback to local chromedriver if available
+            console.log("Trying local chromedriver...");
+            const service = new ServiceBuilder('./chromedriver');
+            driver = await new Builder().forBrowser('chrome').setChromeOptions(options).setChromeService(service).build();
+        }
+        
+        console.log("Driver is created successfully"); 
+        return driver; 
+    } catch (error) { 
+        console.error("Error creating the Selenium WebDriver:", error.message); 
         throw error; 
     }
 };
