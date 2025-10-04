@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/refs/heads/main/schemas/v1.0/azure.yaml.json
+
+name: freegamesscout-backend
+metadata:
+  template: freegamesscout-backend@0.0.1-beta
+
+infra:
+  provider: bicep
+
+services:
+  backend:
+    project: .
+    language: js
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: .
