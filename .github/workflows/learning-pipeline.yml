@@ -1,7 +1,7 @@
-# 🚀 Simple CI/CD Pipeline for Learning
-# This is a simplified version to get started with CI/CD concepts
+# 🎓 Learning CI/CD Pipeline
+# This workflow is for learning and testing - no actual deployment
 
-name: Simple CI/CD
+name: Learning Pipeline
 
 on:
   push:
