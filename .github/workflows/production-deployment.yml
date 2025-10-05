@@ -1,4 +1,4 @@
-# 🚀 Production CI/CD Pipeline
+# 🚀 Production CI/CD Pipeline - Direct Azure Deployment
 name: Production Deployment
 
 on:
@@ -7,161 +7,137 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Job 1: Basic tests only
-  test:
-    name: 🧪 Basic Tests
+  # Job 1: Build and push Docker image
+  build-and-push:
+    name: 🐳 Build and Push Docker Image
     runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
     
     steps:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
     
-    - name: 📦 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-    
-    - name: 📥 Install dependencies
-      run: npm ci
-    
-    - name: 🔒 Security audit
-      run: npm audit --audit-level critical --fix || true
-    
-    - name: ✅ Verify application structure
-      run: |
-        echo "Checking application files..."
-        ls -la backend/
-        node -e "console.log('✅ Node.js works!')"
-        echo "✅ Basic structure verified"
-
-  # Job 2: Docker build only (skip API test for now)
-  docker-build:
-    name: 🐳 Docker Build
-    runs-on: ubuntu-latest
-    needs: test
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 🐳 Build Docker image
-      run: |
-        echo "Building Docker image..."
-        docker build -t freegamesscout-backend .
-        echo "✅ Docker image built successfully"
-    
-    - name: 🔍 Verify Docker image
-      run: |
-        echo "Verifying Docker image..."
-        docker images | grep freegamesscout-backend
-        echo "✅ Docker image verification complete"
-
-  # Job 3: Deploy to Azure
-  deploy:
-    name: 🚀 Deploy to Azure
-    runs-on: ubuntu-latest
-    needs: [test, docker-build]
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: 📦 Install Azure Developer CLI
-      run: |
-        curl -fsSL https://aka.ms/install-azd.sh | bash
-        echo "${HOME}/.azd/bin" >> $GITHUB_PATH
-
-    - name: 🔐 Azure Login
+    - name: 🔐 Login to Azure
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: 🔐 Login to Azure Container Registry
+      run: |
+        # Create ACR if it doesn't exist
+        ACR_NAME="freegamesscoutacr"
+        RESOURCE_GROUP="freegamesscout-rg"
+        
+        # Create resource group
+        az group create --name "${RESOURCE_GROUP}" --location eastus || true
+        
+        # Create ACR
+        az acr create --name "${ACR_NAME}" --resource-group "${RESOURCE_GROUP}" --sku Basic || true
+        
+        # Login to ACR
+        az acr login --name "${ACR_NAME}"
+        
+        echo "ACR_LOGIN_SERVER=${ACR_NAME}.azurecr.io" >> $GITHUB_ENV
+    
+    - name: 📦 Generate metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.ACR_LOGIN_SERVER }}/freegamesscout-backend
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest
+    
+    - name: 🐳 Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
 
-    - name: 🔑 Configure azd authentication
-      env:
-        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      run: |
-        echo "Setting up azd authentication..."
-        
-        # azd uses environment variables for service principal authentication
-        # These need to be exported for azd to pick them up
-        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
-        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
-        
-        # Verify az CLI is logged in
-        echo "Verifying az CLI authentication..."
-        az account show || echo "Warning: az CLI not authenticated"
-        
-        # azd will automatically use these environment variables
-        echo "✅ Authentication environment configured"
+  # Job 2: Deploy to Azure Container Apps
+  deploy:
+    name: 🚀 Deploy to Azure Container Apps
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
     
-    - name: ⚙️ Configure azd environment
-      env:
-        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      run: |
-        # Export auth variables for azd
-        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
-        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
-        
-        # Create or select environment
-        azd env new freegamesscout-prod --no-prompt || azd env select freegamesscout-prod
-        
-        # Set environment variables
-        azd env set AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
-        azd env set AZURE_LOCATION=eastus
-        azd env set MONGO_CONNECTION_STRING="${{ secrets.MONGO_CONNECTION_STRING }}"
-        
-        echo "✅ Environment configured"
+    steps:
+    - name: 🔐 Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
     
-    - name: 🚀 Deploy to Azure
-      timeout-minutes: 30
+    - name: 🚀 Deploy to Container Apps
       env:
-        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
       run: |
-        echo "Starting Azure deployment..."
+        # Configuration
+        RESOURCE_GROUP="freegamesscout-rg"
+        LOCATION="eastus"
+        ACR_NAME="freegamesscoutacr"
+        ENVIRONMENT_NAME="freegamesscout-env"
+        APP_NAME="freegamesscout-backend"
         
-        # Export auth variables for azd
-        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
-        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
+        # Ensure resource group exists
+        az group create --name "${RESOURCE_GROUP}" --location "${LOCATION}" || true
         
-        # Run deployment
-        azd up --no-prompt
+        # Create Container App Environment if it doesn't exist
+        echo "Creating Container App Environment..."
+        az containerapp env create \
+          --name "${ENVIRONMENT_NAME}" \
+          --resource-group "${RESOURCE_GROUP}" \
+          --location "${LOCATION}" || true
         
-        echo "✅ Azure deployment completed"
+        # Get ACR credentials
+        ACR_USERNAME=$(az acr credential show --name "${ACR_NAME}" --query "username" -o tsv)
+        ACR_PASSWORD=$(az acr credential show --name "${ACR_NAME}" --query "passwords[0].value" -o tsv)
+        
+        # Deploy or update the container app
+        echo "Deploying Container App..."
+        az containerapp create \
+          --name "${APP_NAME}" \
+          --resource-group "${RESOURCE_GROUP}" \
+          --environment "${ENVIRONMENT_NAME}" \
+          --image "${ACR_NAME}.azurecr.io/freegamesscout-backend:latest" \
+          --target-port 3000 \
+          --ingress 'external' \
+          --registry-server "${ACR_NAME}.azurecr.io" \
+          --registry-username "${ACR_USERNAME}" \
+          --registry-password "${ACR_PASSWORD}" \
+          --env-vars \
+            "MONGO_CONNECTION_STRING=secretref:mongo-connection" \
+            "NODE_ENV=production" \
+          --secrets \
+            "mongo-connection=${MONGO_CONNECTION_STRING}" \
+          --cpu 0.5 \
+          --memory 1 \
+          --min-replicas 1 \
+          --max-replicas 3 \
+          || \
+        az containerapp update \
+          --name "${APP_NAME}" \
+          --resource-group "${RESOURCE_GROUP}" \
+          --image "${ACR_NAME}.azurecr.io/freegamesscout-backend:latest" \
+          --set-env-vars \
+            "MONGO_CONNECTION_STRING=secretref:mongo-connection" \
+            "NODE_ENV=production" \
+          --replace-secrets \
+            "mongo-connection=${MONGO_CONNECTION_STRING}"
     
-    - name: 🌐 Get deployment info
-      env:
-        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    - name: 🌐 Get deployment URL
       run: |
-        echo "Getting deployment information..."
+        APP_NAME="freegamesscout-backend"
+        RESOURCE_GROUP="freegamesscout-rg"
         
-        # Export auth variables for azd
-        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
-        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
-        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
+        APP_URL=$(az containerapp show \
+          --name "${APP_NAME}" \
+          --resource-group "${RESOURCE_GROUP}" \
+          --query "properties.configuration.ingress.fqdn" \
+          --output tsv)
         
-        azd env get-values
-        
-        BACKEND_URL=$(azd env get-values | grep BACKEND_URL | cut -d'=' -f2 | tr -d '"' || echo "URL not found")
-        echo "🌐 Backend URL: $BACKEND_URL"
-        
-        if [ "$BACKEND_URL" != "URL not found" ]; then
-          echo "✅ Deployment successful! Your API is available at: $BACKEND_URL"
-        else
-          echo "⚠️ Deployment completed but URL not found. Check Azure portal."
-        fi
+        echo "✅ Deployment successful!"
+        echo "🌐 Your API is available at: https://${APP_URL}"
+        echo "📊 Check application logs with: az containerapp logs show -n ${APP_NAME} -g ${RESOURCE_GROUP}"
