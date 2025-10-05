@@ -67,198 +67,94 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
     
-    # Azure Login moved below (after azd installation) to ensure azd can pick up the CLI session
-
-    # ...existing code...
-    
     - name: 📦 Install Azure Developer CLI
       run: |
         curl -fsSL https://aka.ms/install-azd.sh | bash
         echo "${HOME}/.azd/bin" >> $GITHUB_PATH
 
-    - name: � Azure Login
+    - name: 🔐 Azure Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: �🔁 Make azd use az CLI credentials (if available)
-      run: |
-        echo "Checking az CLI login and instructing azd to use it"
-        az account show || echo "az account show failed (not logged in yet)"
-        azd auth login --use-cli || echo "azd auth login --use-cli failed or not supported"
-
-    - name: � Import SDK auth into azd (if AZURE_CREDENTIALS provided)
+    - name: 🔑 Configure azd authentication
       env:
-        AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
-      run: |
-        echo "Importing AZURE_CREDENTIALS into azd (if provided)"
-        if [ -n "$AZURE_CREDENTIALS" ]; then
-          printf '%s' "$AZURE_CREDENTIALS" > azcreds.raw
-
-          # If raw is valid JSON, keep it. Otherwise try base64 decode.
-          if jq -e . azcreds.raw >/dev/null 2>&1; then
-            mv azcreds.raw azcreds.json
-          else
-            if base64 --decode azcreds.raw > azcreds.decoded 2>/dev/null; then
-              mv azcreds.decoded azcreds.json
-            else
-              echo "AZURE_CREDENTIALS is neither valid JSON nor base64-encoded JSON; skipping azd sdk-auth import"
-            fi
-          fi
-
-          if [ -f azcreds.json ] && jq -e . azcreds.json >/dev/null 2>&1; then
-            echo "Valid sdk-auth JSON present; running azd auth login"
-            azd auth login --service-principal --sdk-auth azcreds.json || true
-          fi
-        else
-          echo "No AZURE_CREDENTIALS secret found; skipping azd sdk-auth import"
-        fi
-
-        echo "az account show (diagnostic, may be empty if not logged in)"
-        az account show || true
-
-    - name: �🔁 Ensure azd is authenticated (fallback)
-      env:
-        AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
         AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       run: |
-        set -eu
-        echo "Installing jq (needed to parse credentials)"
-        sudo apt-get update && sudo apt-get install -y jq
-
-        # Prefer a provided full SDK auth JSON
-        if [ -n "$AZURE_CREDENTIALS" ]; then
-          printf '%s' "$AZURE_CREDENTIALS" > azcreds.raw
-          if jq -e . azcreds.raw >/dev/null 2>&1; then
-            mv azcreds.raw azcreds.json
-          else
-            if base64 --decode azcreds.raw > azcreds.decoded 2>/dev/null; then
-              mv azcreds.decoded azcreds.json
-            else
-              echo "AZURE_CREDENTIALS is not valid JSON nor base64-encoded JSON; will try individual secrets"
-            fi
-          fi
-        fi
-
-        # If we don't have azcreds.json, generate minimal sdk-auth JSON from individual AZURE_* secrets
-        if [ ! -f azcreds.json ] && [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_SUBSCRIPTION_ID" ]; then
-          echo "Generating minimal azcreds.json from AZURE_CLIENT_* secrets"
-          echo "{\"clientId\":\"$AZURE_CLIENT_ID\",\"clientSecret\":\"$AZURE_CLIENT_SECRET\",\"subscriptionId\":\"$AZURE_SUBSCRIPTION_ID\",\"tenantId\":\"$AZURE_TENANT_ID\",\"activeDirectoryEndpointUrl\":\"https://login.microsoftonline.com\",\"resourceManagerEndpointUrl\":\"https://management.azure.com/\",\"activeDirectoryGraphResourceId\":\"https://graph.windows.net/\",\"sqlManagementEndpointUrl\":\"https://management.core.windows.net:8443/\",\"galleryEndpointUrl\":\"https://gallery.azure.com/\",\"managementEndpointUrl\":\"https://management.core.windows.net/\"}" > azcreds.json
-        fi
-
-        # If we have an SDK auth file, import it into azd
-        if [ -f azcreds.json ] && jq -e . azcreds.json >/dev/null 2>&1; then
-          echo "Importing azcreds.json into azd"
-          azd auth login --service-principal --sdk-auth azcreds.json || true
-        else
-          echo "No valid azcreds.json available to import into azd"
-        fi
+        echo "Setting up azd authentication..."
+        
+        # azd uses environment variables for service principal authentication
+        # These need to be exported for azd to pick them up
+        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
+        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
+        
+        # Verify az CLI is logged in
+        echo "Verifying az CLI authentication..."
+        az account show || echo "Warning: az CLI not authenticated"
+        
+        # azd will automatically use these environment variables
+        echo "✅ Authentication environment configured"
     
     - name: ⚙️ Configure azd environment
+      env:
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       run: |
+        # Export auth variables for azd
+        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
+        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
+        
+        # Create or select environment
         azd env new freegamesscout-prod --no-prompt || azd env select freegamesscout-prod
-        azd env set AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+        # Set environment variables
+        azd env set AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
         azd env set AZURE_LOCATION=eastus
         azd env set MONGO_CONNECTION_STRING="${{ secrets.MONGO_CONNECTION_STRING }}"
+        
+        echo "✅ Environment configured"
     
     - name: 🚀 Deploy to Azure
       timeout-minutes: 30
-      run: |
-        echo "Starting Azure deployment..."
-        echo "Ensuring azd is authenticated before running azd up"
-        # Try to ensure azd has SDK auth imported if we have an azcreds.json (do this even if az CLI is logged in)
-        if [ -f azcreds.json ] && command -v jq >/dev/null 2>&1 && jq -e . azcreds.json >/dev/null 2>&1; then
-          echo "Importing azcreds.json into azd so azd can authenticate"
-          azd auth login --service-principal --sdk-auth azcreds.json || true
-        else
-          echo "No azcreds.json found or it's invalid; will rely on az CLI login or AZURE_CLIENT_* secrets"
-        fi
-
-        # If az CLI is logged in, tell azd to use the az CLI authentication
-        if az account show >/dev/null 2>&1; then
-          echo "az CLI already logged in — trying to have azd use the az CLI credentials"
-          azd auth login --use-cli || echo "azd auth login --use-cli failed; will try sdk-auth import or az login fallback"
-          # Also attempt sdk-auth import if present
-          if [ -f azcreds.json ] && jq -e . azcreds.json >/dev/null 2>&1; then
-            azd auth login --service-principal --sdk-auth azcreds.json || true
-          fi
-        else
-          echo "az CLI not logged in - attempting az login using individual secrets"
-          if [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] && [ -n "${{ secrets.AZURE_CLIENT_SECRET }}" ] && [ -n "${{ secrets.AZURE_TENANT_ID }}" ]; then
-            echo "Attempting az login with individual AZURE_* secrets"
-            az login --service-principal --username "${{ secrets.AZURE_CLIENT_ID }}" --password "${{ secrets.AZURE_CLIENT_SECRET }}" --tenant "${{ secrets.AZURE_TENANT_ID }}" || true
-            # after az login, instruct azd to use CLI creds
-            azd auth login --use-cli || true
-          else
-            echo "No individual AZURE_CLIENT_* secrets available to login"
-          fi
-        fi
-
-        # Re-check and fail with a helpful message if still not logged in
-        if ! az account show >/dev/null 2>&1; then
-          echo "ERROR: az CLI is not authenticated. Ensure AZURE_CLIENT_ID/SECRET/TENANT_ID or AZURE_CREDENTIALS are set."
-          exit 1
-        fi
-
-        azd up --no-prompt
-        echo "✅ Azure deployment completed"
-      env:
-        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
-
-    - name: 🔐 Authenticate azd (explicit)
-      if: always()
       env:
         AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
       run: |
-        set -eux
-        echo "Diagnostics: which azd && azd --version"
-        which azd || (echo "azd not found in PATH" && exit 1)
-        azd --version || true
-
-        echo "Diagnostics: az account show"
-        az account show || echo "az not logged in"
-
-        # Prefer azd to use az CLI credentials
-        if azd auth login --use-cli >/dev/null 2>&1; then
-          echo "azd configured to use az CLI credentials"
-        else
-          echo "azd --use-cli did not succeed; trying sdk-auth import if available"
-          if [ -n "$AZURE_CREDENTIALS" ]; then
-            printf '%s' "$AZURE_CREDENTIALS" > /tmp/azcreds.json || true
-            if jq -e . /tmp/azcreds.json >/dev/null 2>&1; then
-              azd auth login --service-principal --sdk-auth /tmp/azcreds.json || true
-            else
-              echo "Provided AZURE_CREDENTIALS is not valid JSON; skipping sdk-auth import"
-            fi
-          fi
-
-          # Final fallback: try az login with individual secrets and then tell azd to use CLI
-          if az account show >/dev/null 2>&1; then
-            echo "az already logged in"
-          else
-            if [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_CLIENT_SECRET" ] && [ -n "$AZURE_TENANT_ID" ]; then
-              echo "Attempting az login with AZURE_CLIENT_* secrets"
-              az login --service-principal --username "$AZURE_CLIENT_ID" --password "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID" || true
-              azd auth login --use-cli || true
-            else
-              echo "No credentials available to login (neither sdk-auth nor AZURE_CLIENT_* secrets)"
-            fi
-          fi
-        fi
-        echo "Final diagnostics: az account show && azd auth status (if supported)"
-        az account show || true
-        azd auth status || true
+        echo "Starting Azure deployment..."
+        
+        # Export auth variables for azd
+        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
+        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
+        
+        # Run deployment
+        azd up --no-prompt
+        
+        echo "✅ Azure deployment completed"
     
     - name: 🌐 Get deployment info
+      env:
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       run: |
         echo "Getting deployment information..."
+        
+        # Export auth variables for azd
+        export AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
+        export AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+        export AZURE_TENANT_ID="${AZURE_TENANT_ID}"
+        
         azd env get-values
         
         BACKEND_URL=$(azd env get-values | grep BACKEND_URL | cut -d'=' -f2 | tr -d '"' || echo "URL not found")
