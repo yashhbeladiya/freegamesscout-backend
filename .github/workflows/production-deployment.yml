@@ -71,6 +71,42 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 🛠️ Ensure azd has SDK auth (write sdk-auth and import)
+      run: |
+        echo "Ensuring azd has SDK auth credentials"
+        # If AZURE_CREDENTIALS secret exists, try to write it and import into azd
+        if [ -n "${{ secrets.AZURE_CREDENTIALS }}" ]; then
+          printf '%s' "${{ secrets.AZURE_CREDENTIALS }}" > azcreds.raw || true
+
+          # Try to decode base64 if it looks encoded
+          if ! jq -e . azcreds.raw >/dev/null 2>&1 && grep -Eq '^[A-Za-z0-9+/=]+$' azcreds.raw; then
+            echo "Attempting base64 decode of AZURE_CREDENTIALS"
+            if base64 --decode azcreds.raw > azcreds.decoded 2>/dev/null; then
+              mv azcreds.decoded azcreds.json || true
+            else
+              mv azcreds.raw azcreds.json || true
+            fi
+          else
+            mv azcreds.raw azcreds.json || true
+          fi
+
+          echo "Importing SDK auth into azd (if valid)"
+          if [ -f azcreds.json ] && jq -e . azcreds.json >/dev/null 2>&1; then
+            azd auth login --service-principal --sdk-auth azcreds.json || true
+          else
+            echo "No valid azcreds.json found to import into azd"
+          fi
+        else
+          echo "AZURE_CREDENTIALS secret empty; will rely on azure/login action or individual AZURE_* secrets"
+        fi
+
+        echo "az account show (diagnostic, may fail if not logged in)"
+        az account show || true
+      env:
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     
     - name: 📦 Install Azure Developer CLI
       run: |
@@ -151,6 +187,32 @@ jobs:
       timeout-minutes: 30
       run: |
         echo "Starting Azure deployment..."
+        echo "Ensuring azd is authenticated before running azd up"
+        # If a valid azd login exists, this will be quick; otherwise try importing SDK auth or az login
+        if az account show >/dev/null 2>&1; then
+          echo "az CLI already logged in"
+        else
+          echo "az CLI not logged in - attempting to import sdk-auth or az login using secrets"
+          if [ -f azcreds.json ] && command -v jq >/dev/null 2>&1 && jq -e . azcreds.json >/dev/null 2>&1; then
+            echo "Found azcreds.json - running azd auth login"
+            azd auth login --service-principal --sdk-auth azcreds.json || true
+          else
+            # Try az login with individual secrets
+            if [ -n "${{ secrets.AZURE_CLIENT_ID }}" ] && [ -n "${{ secrets.AZURE_CLIENT_SECRET }}" ] && [ -n "${{ secrets.AZURE_TENANT_ID }}" ]; then
+              echo "Attempting az login with individual AZURE_* secrets"
+              az login --service-principal --username "${{ secrets.AZURE_CLIENT_ID }}" --password "${{ secrets.AZURE_CLIENT_SECRET }}" --tenant "${{ secrets.AZURE_TENANT_ID }}" || true
+            else
+              echo "No credentials available to login (neither azcreds.json nor AZURE_CLIENT_* secrets)."
+            fi
+          fi
+        fi
+
+        # Re-check and fail with a helpful message if still not logged in
+        if ! az account show >/dev/null 2>&1; then
+          echo "ERROR: az CLI is not authenticated. Ensure AZURE_CREDENTIALS (sdk-auth JSON) or AZURE_CLIENT_ID/SECRET/TENANT_ID secrets are set."
+          exit 1
+        fi
+
         azd up --no-prompt
         echo "✅ Azure deployment completed"
       env:
