@@ -80,9 +80,9 @@ jobs:
     - name: ⚙️ Configure azd environment
       run: |
         azd env new freegamesscout-prod --no-prompt || azd env select freegamesscout-prod
-        azd env set AZURE_SUBSCRIPTION_ID ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        azd env set AZURE_LOCATION eastus
-        azd env set MONGO_CONNECTION_STRING "${{ secrets.MONGO_CONNECTION_STRING }}"
+        azd env set AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        azd env set AZURE_LOCATION=eastus
+        azd env set MONGO_CONNECTION_STRING="${{ secrets.MONGO_CONNECTION_STRING }}"
     
     - name: 🚀 Deploy to Azure
       timeout-minutes: 30
