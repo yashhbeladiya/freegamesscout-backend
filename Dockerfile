@@ -21,6 +21,9 @@ RUN npm ci --only=production
 # Copy application code
 COPY . .
 
+# Remove local chromedriver files since we use system one
+RUN rm -f ./chromedriver ./chromedriver.exe
+
 # Create a non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 RUN chown -R appuser:appuser /app
