@@ -35,9 +35,9 @@ ENV CHROME_PATH=/usr/bin/chromium
 ENV DISPLAY=:99
 ENV HEADLESS=true
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5500/api/games || exit 1
+# Health check (use /health endpoint and be more tolerant during startup)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:5500/health || exit 1
 
 # Start the application
 CMD ["npm", "start"]

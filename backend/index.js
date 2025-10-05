@@ -49,6 +49,16 @@ app.use(cors());
 
 app.use("/api/games", gameRoutes);
 
+// Lightweight health endpoint for readiness/liveness probes
+app.get('/health', (req, res) => {
+  // simple check: if mongoose connection is ready
+  const readyState = mongoose.connection.readyState; // 1 = connected
+  if (readyState === 1) {
+    return res.status(200).json({ status: 'ok' });
+  }
+  return res.status(503).json({ status: 'unavailable', mongooseState: readyState });
+});
+
 app.post('/trigger-scrape', async (req, res) => {
     try {
         await runScrapers();
@@ -92,5 +102,6 @@ cron.schedule("01 11 * * *", runScrapers, {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server is running on the port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`NODE_ENV=${process.env.NODE_ENV || 'not set'}`);
 });
