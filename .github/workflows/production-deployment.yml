@@ -76,6 +76,24 @@ jobs:
       run: |
         curl -fsSL https://aka.ms/install-azd.sh | bash
         echo "${HOME}/.azd/bin" >> $GITHUB_PATH
+
+    - name: 🔁 Ensure azd is authenticated (fallback)
+      run: |
+        echo "Installing jq (needed to parse AZURE_CREDENTIALS)..."
+        sudo apt-get update && sudo apt-get install -y jq
+        echo "Writing AZURE_CREDENTIALS to file for az login"
+        printf '%s' "${{ secrets.AZURE_CREDENTIALS }}" > azcreds.json
+        # Login with az using service principal
+        CLIENT_ID=$(jq -r '.clientId' azcreds.json)
+        CLIENT_SECRET=$(jq -r '.clientSecret' azcreds.json)
+        TENANT_ID=$(jq -r '.tenantId' azcreds.json)
+        az login --service-principal --username "$CLIENT_ID" --password "$CLIENT_SECRET" --tenant "$TENANT_ID"
+        # Set the subscription so azd uses the correct one
+        az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+        # Ensure azd picks up the CLI login (sdk-auth file fallback)
+        azd auth login --service-principal --sdk-auth azcreds.json || true
+      env:
+        AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     
     - name: ⚙️ Configure azd environment
       run: |
