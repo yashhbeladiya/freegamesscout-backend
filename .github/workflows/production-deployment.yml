@@ -81,19 +81,64 @@ jobs:
       run: |
         echo "Installing jq (needed to parse AZURE_CREDENTIALS)..."
         sudo apt-get update && sudo apt-get install -y jq
-        echo "Writing AZURE_CREDENTIALS to file for az login"
-        printf '%s' "${{ secrets.AZURE_CREDENTIALS }}" > azcreds.json
-        # Login with az using service principal
-        CLIENT_ID=$(jq -r '.clientId' azcreds.json)
-        CLIENT_SECRET=$(jq -r '.clientSecret' azcreds.json)
-        TENANT_ID=$(jq -r '.tenantId' azcreds.json)
-        az login --service-principal --username "$CLIENT_ID" --password "$CLIENT_SECRET" --tenant "$TENANT_ID"
-        # Set the subscription so azd uses the correct one
-        az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-        # Ensure azd picks up the CLI login (sdk-auth file fallback)
-        azd auth login --service-principal --sdk-auth azcreds.json || true
+        echo "Preparing AZURE_CREDENTIALS for az login"
+
+        # Write secret to file but guard against empty value
+        if [ -z "${{ secrets.AZURE_CREDENTIALS }}" ]; then
+          echo "AZURE_CREDENTIALS secret is empty, will try individual AZURE_* secrets fallback"
+        else
+          printf '%s' "${{ secrets.AZURE_CREDENTIALS }}" > azcreds.raw
+
+          # If looks like base64 (no spaces and only base64 chars), try to decode it first
+          if grep -Eq '^[A-Za-z0-9+/=]+$' azcreds.raw && [ $(wc -c < azcreds.raw) -gt 100 ]; then
+            echo "AZURE_CREDENTIALS appears base64-ish; attempting base64 decode"
+            if base64 --decode azcreds.raw > azcreds.decoded 2>/dev/null; then
+              mv azcreds.decoded azcreds.json || true
+            else
+              echo "Base64 decode failed; using raw value as-is"
+              mv azcreds.raw azcreds.json
+            fi
+          else
+            # Not base64; use as-is
+            mv azcreds.raw azcreds.json
+          fi
+
+          # Validate JSON before jq usage
+          if jq -e . azcreds.json >/dev/null 2>&1; then
+            echo "AZURE_CREDENTIALS contains valid JSON - parsing"
+            CLIENT_ID=$(jq -r '.clientId // .client_id // .clientId' azcreds.json)
+            CLIENT_SECRET=$(jq -r '.clientSecret // .client_secret // .clientSecret' azcreds.json)
+            TENANT_ID=$(jq -r '.tenantId // .tenant_id // .tenantId' azcreds.json)
+          else
+            echo "AZURE_CREDENTIALS is not valid JSON; will fallback to individual AZURE_* secrets if provided"
+            CLIENT_ID=""
+            CLIENT_SECRET=""
+            TENANT_ID=""
+          fi
+        fi
+
+        # Final fallback: use individual secrets if any of the parsed values are empty
+        : "${CLIENT_ID:=${{ secrets.AZURE_CLIENT_ID }}}"
+        : "${CLIENT_SECRET:=${{ secrets.AZURE_CLIENT_SECRET }}}"
+        : "${TENANT_ID:=${{ secrets.AZURE_TENANT_ID }}}"
+
+        if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ] || [ -z "$TENANT_ID" ]; then
+          echo "Missing service principal credentials - aborting interactive az login step"
+        else
+          echo "Logging in with service principal"
+          az login --service-principal --username "$CLIENT_ID" --password "$CLIENT_SECRET" --tenant "$TENANT_ID"
+          az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+          # Ensure azd picks up the CLI login (sdk-auth file fallback) if we have a JSON file
+          if [ -f azcreds.json ] && jq -e . azcreds.json >/dev/null 2>&1; then
+            azd auth login --service-principal --sdk-auth azcreds.json || true
+          fi
+        fi
       env:
         AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
     
     - name: ⚙️ Configure azd environment
       run: |
